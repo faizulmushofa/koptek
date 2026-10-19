@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\DTOs\UserDto;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -11,31 +12,22 @@ class AuthService
 {
     public function register(array $data): array
     {
-        $validator = Validator::make($data, [
+        Validator::make($data, [
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:8',
-        ]);
-
-        if ($validator->fails()) {
-            throw ValidationException::withMessages([
-                'email' => $validator->errors()->first('email'),
-            ]);
-        }
+            'phone' => 'nullable|string|max:30',
+        ])->validate();
 
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
+            'phone' => $data['phone'] ?? null,
         ]);
 
-        $userDto = [
-            'name' => $user['name'],
-            'email' => $user['email'],
-        ];
-
         return [
-            'user' => $userDto,
+            'user' => UserDto::fromModel($user)->toArray(),
         ];
     }
 
@@ -49,22 +41,12 @@ class AuthService
         $user = User::where('email', $data['email'])->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Email atau password salah'],
-            ]);
+            throw ValidationException::withMessages(['email' => ['Email atau password salah']]);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        $userDto = [
-            'name' => $user['name'],
-            'email' => $user['email'],
-        ];
-
         return [
-            'user' => $userDto,
-            'token' => $token,
+            'user' => UserDto::fromModel($user)->toArray(),
+            'token' => $user->createToken('auth_token')->plainTextToken,
         ];
     }
-    
 }
